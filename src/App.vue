@@ -1,89 +1,70 @@
 <template>
-  <cool-header></cool-header>
+  <cool-header title="QRCode Generator"></cool-header>
   <main>
     <!--    flex-col-reverse is for the images reverse-->
     <!--    form 1 2 -->
     <!--    to 2 -->
     <!--       1 -->
-    <div
-      class="flex flex-col-reverse justify-center m-auto md:max-w-4xl md:flex-row p-4"
-    >
-      <div class="w-full mr-24 md:w-2/3">
+    <cool-container>
+      <template #div1>
         <h1 class="mt-3 text-3xl text-bold">QR Code generation</h1>
         <p class="mb-4">
           QR Codes allows smart phone users to access your website more easily !
         </p>
         <p>Enter the url below to generate a QR Code !</p>
-        <form id="submit" class="mt-4">
-          <!--          p-3 in the input is bigger the text area-->
-          <!--          outline-none is remove the browser color attach-->
-          <input
-            type="url"
-            class="w-full border-2 mr-2 mb-5 border-gray-600 rounded p-3 focus:outline-none"
-            placeholder="Enter Url .."
-            v-model="userURL"
-          />
+        <form id="submit" @submit.prevent class="mt-4">
+          <!--          v-model:input="ref('')"-->
+          <!--          v-model just can work with the ref() to make the emit value to being caught-->
+          <!--alternative , you can wrapping the value in an object , so the vue dont auto unpacking the value which treated the value-->
+          <!--          as a Proxy by default-->
+          <cool-input
+            v-model:inputs="value"
+            placeholder="Enter your URL ..."
+          ></cool-input>
 
-          <select
-            class="w-full border-2 mr-2 border-gray-600 p-3 rounded focus:outline-none"
-            @change="sizeChanged($event)"
-          >
-            <!--            https://reactgo.com/vue-conditionally-add-attributes/-->
-            <option
-              v-for="(size, index) in availableSize"
-              :key="index"
-              :value="size"
-              :selected="size === defaultSize"
-            >
-              {{ size + "x" + size }}
-            </option>
-          </select>
+          <!--          if not using v-bind here 300 will treated as an string-->
+          <cool-select
+            @change="qrcode.selectHandler"
+            :default-size="defaultSize"
+            :units="availableSize"
+          ></cool-select>
 
-          <button
-            class="bg-gray-400 p-3 w-full mt-4 rounded text-white hover:bg-gray-700 hover:animate-pulse"
-            @click.prevent="onGenerate"
-          >
-            Generate QR code
-          </button>
+          <cool-button
+            prompt-text="Generate QRCode"
+            @click="qrcode.onGenerate"
+          ></cool-button>
         </form>
-      </div>
+      </template>
 
-      <div class="w-full self-center md:w-1/3">
-        <img
-          src="./assets/logo.svg"
-          class="w-full w-1/2 m-auto mb-10 md:w-full"
-          alt=""
-        />
-      </div>
-    </div>
+      <template #div2>
+        <cool-logo></cool-logo>
+        <cool-button
+          prompt-text="RESET QRCode"
+          @click="qrcode.reset"
+        ></cool-button>
+      </template>
+    </cool-container>
 
     <!--      Generated QR Code-->
-    <div
-      class="w-full flex flex-col text-center justify-center items-center p-4 mt-20 md:flex-row"
-    >
-      <!--        Spinner-->
-      <img
-        v-if="loadingPic"
-        src="./assets/icons8-fidget-spinner.gif"
-        alt=""
-        class="inline"
-      />
-      <!--        QR out-->
-      <div v-if="codeReady">
+
+    <div class="flex flex-col w-full p-5 mt-2 justify-center items-center">
+      <normal-container :controller="showSpinner">
+        <cool-spinner></cool-spinner>
+      </normal-container>
+
+      <normal-container :controller="codeReady">
         <qrcode-vue
-          :value="userURL"
+          :value="value"
           level="M"
           class="m-auto w-full"
           :size="defaultSize"
           id="qrcode"
         />
-        <button
-          class="bg-gray-400 p-3 w-full mt-4 rounded text-white hover:bg-gray-700 hover:animate-pulse"
-          @click.prevent="download_image"
-        >
-          Download QRCode
-        </button>
-      </div>
+        <cool-button
+          prompt-text="Download QRCode"
+          @click="qrcode.download_image"
+        ></cool-button>
+      </normal-container>
     </div>
   </main>
 </template>
@@ -94,66 +75,21 @@
 // md: when 1200px +
 import QrcodeVue from "qrcode.vue";
 import CoolHeader from "@/components/layout/cool-header.vue";
-import { ref } from "vue";
+import CoolContainer from "@/components/layout/cool-container.vue";
+import CoolLogo from "@/components/icons/cool-logo.vue";
+import CoolInput from "@/components/reactive/cool-input.vue";
+import CoolSelect from "@/components/reactive/cool-select.vue";
+import CoolButton from "@/components/reactive/cool-button.vue";
+import NormalContainer from "@/components/layout/normal-container.vue";
+import CoolSpinner from "@/components/icons/cool-spinner.vue";
+import qrcodeStore from "@/stores/qrcode.js";
+import { storeToRefs } from "pinia";
 
-let defaultSize = ref(300); // need ref to let the code resize automatically
-const availableSize = [100, 200, 300, 500, 600, 700, 800, 900];
-
-function sizeChanged(e) {
-  console.log(e.target.value);
-  defaultSize.value = Number(e.target.value); // change defaultSize
-}
-
-const loadingPic = ref(false);
-const codeReady = ref(false);
-
-const userURL = ""; // no using ref here to avoid the qrcode not flicker
-
-let currentCounter = "setTimeout";
-let currentClickCounter = 0;
-
-function onGenerate() {
-  // stop the previous counter
-  if (typeof currentCounter === "number") {
-    clearTimeout(currentCounter);
-    console.log("counter stopped");
-  }
-  loadingPic.value = true; // stop the previous loading
-  codeReady.value = false;
-
-  console.log(currentClickCounter);
-  // add click counter
-  currentClickCounter++;
-
-  if (currentClickCounter >= 3) {
-    alert("Please dont click the button continuously !!");
-    // reset the click counter
-    currentClickCounter = 0;
-    // show the images immediately
-    loadingPic.value = false;
-    codeReady.value = true;
-  }
-
-  // set a time to generate the qrcode , wait about 0.5 seconds
-  currentCounter = setTimeout(() => {
-    // https://stackoverflow.com/questions/21553547/how-to-clear-timeout-in-javascript
-    loadingPic.value = false;
-    codeReady.value = true;
-    console.log("counter start");
-    // reset the click counter
-    currentClickCounter = 0;
-  }, 500);
-}
-
-function download_image() {
-  // Dump the canvas contents to a file.
-  let canvas = document.getElementById("qrcode");
-  let img = canvas.toDataURL("image/png");
-  const link = document.createElement("a");
-  link.href = img;
-  link.download = "qrcode.png";
-  link.click();
-}
+const qrcode = qrcodeStore();
+const { codeReady, defaultSize, availableSize, showSpinner } =
+  storeToRefs(qrcode);
+// value will cause the flicker is use storeToRefs,so just use property to avoid flicker
+const value = qrcode.value;
 </script>
 
 <style scoped></style>
